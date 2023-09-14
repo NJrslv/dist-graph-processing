@@ -1,2 +1,1 @@
-# dist-graph-processing
- Distributed Graph Processing System
+# Distributed Educational Graph Processing System

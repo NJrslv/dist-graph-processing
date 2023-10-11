@@ -5,3 +5,4 @@
 - distributed-systems [lectures](https://www.youtube.com/watch?v=h5UKFlGxOkg&list=PL4_hYwCyhAvaYKF6HkyCximCvlExxxnrC) | [practise](https://www.youtube.com/watch?v=eRmhfw7hqdw&list=PL4_hYwCyhAvZd6B5fN3yAB0zOCjhgpfgg)
 - [awesome-concurrency-reading](https://gitlab.com/Lipovsky/awesome-concurrency)
 - [awesome-distsys-reading](https://gitlab.com/Lipovsky/awesome-distsys)
+- [Golang-courses](https://github.com/golang/go/wiki/Courses)

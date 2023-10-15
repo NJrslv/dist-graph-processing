@@ -6,3 +6,4 @@
 - [awesome-concurrency-reading](https://gitlab.com/Lipovsky/awesome-concurrency)
 - [awesome-distsys-reading](https://gitlab.com/Lipovsky/awesome-distsys)
 - [Golang-courses](https://github.com/golang/go/wiki/Courses)
+- [Reddit: Learning Distributed systems with golang](https://www.reddit.com/r/golang/comments/bahm15/learning_distributed_systems_with_golang/)

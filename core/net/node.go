@@ -5,36 +5,41 @@ import (
 	"sync"
 )
 
-type Runner interface {
-	// Run method is responsible for running the coordinator or worker.
-	Run()
-	GetRPCount()
-}
+type Role int
 
-type Coordinator struct {
+const (
+	Coordinator Role = iota
+	Worker
+)
+
+type Node struct {
 	mu       sync.Mutex
+	name     string
 	services map[string]*svc.Serviceable // Services, by names
+	role     Role                        // coordinator or worker
 	count    int                         // incoming RPCs
 }
 
-func (c *Coordinator) Run() {
+func (n *Node) Run() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 
+	switch n.role {
+	case Coordinator:
+		// Coordinator logic
+	case Worker:
+		// Worker logic
+	}
 }
 
-func (c *Coordinator) GetRPCount() int {
-	return c.count
+func (n *Node) GetRPCount() int {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.count
 }
 
-type Worker struct {
-	mu       sync.Mutex
-	services map[string]*svc.Serviceable // Services, by names
-	count    int                         // incoming RPCs
-}
-
-func (w *Worker) Run() {
-
-}
-
-func (w *Worker) GetRPCount() int {
-	return w.count
+func (n *Node) SetRole(role Role) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.role = role
 }

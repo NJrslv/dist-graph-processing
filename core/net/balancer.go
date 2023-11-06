@@ -1,7 +1,7 @@
 package net
 
 import (
-	"log"
+	"distgraphia/core/constants"
 	"sync"
 )
 
@@ -16,12 +16,12 @@ import (
 */
 
 type LoadBalancer struct {
-	nodes   []*Node
+	nodes   [constants.NumNodes]*Node
 	current int
 	mu      sync.Mutex
 }
 
-func MakeLoadBalancer(nodes []*Node) LoadBalancer {
+func MakeLoadBalancer(nodes [constants.NumNodes]*Node) LoadBalancer {
 	return LoadBalancer{
 		nodes:   nodes,
 		current: 0,
@@ -29,14 +29,6 @@ func MakeLoadBalancer(nodes []*Node) LoadBalancer {
 }
 
 func (lb *LoadBalancer) GetNextNode() *Node {
-	lb.mu.Lock()
-	defer lb.mu.Unlock()
-
-	if len(lb.nodes) == 0 {
-		log.Print("balancer.GetNextNode(): there are 0 nodes for balancing\n")
-		return nil
-	}
-
 	node := lb.nodes[lb.current]
 	lb.current = (lb.current + 1) % len(lb.nodes)
 	return node

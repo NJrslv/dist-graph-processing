@@ -14,21 +14,26 @@ const (
 )
 
 type Node struct {
-	name     string
-	services map[string]*svc.Serviceable // Services, by names
-	count    int                         // incoming RPCs
-	reqCh    chan reqMsg                 // requests to this particular node
+	name        string
+	count       int         // incoming RPCs
+	reqCh       chan reqMsg // requests to this particular node
+	broadCaster *svc.BroadCaster
 }
 
 func MakeNode(name string) *Node {
 	return &Node{
-		name:     name,
-		services: make(map[string]*svc.Serviceable),
-		count:    0,
-		reqCh:    make(chan reqMsg),
+		name:  name,
+		count: 0,
+		reqCh: make(chan reqMsg),
+		// svc is connected in Network
 	}
 }
 
+// Run is simplified, Run() represents a goroutine,
+// and also it is a Node in the system
+// each Node can concurrently process the requests
+// but in this implementation it is done sequentially
+// simply add go handleRequest() and create chan of sub-replies
 func (n *Node) Run(done chan struct{}) {
 	for {
 		select {
@@ -42,6 +47,12 @@ func (n *Node) Run(done chan struct{}) {
 						2. encode
 				put encoded reply to the req.replyCh
 			*/
+			switch req.to {
+			case Coordinator:
+				n.handleCoordinator(req)
+			case Worker:
+				n.handleWorker()
+			}
 		}
 	}
 }
@@ -65,4 +76,35 @@ func (n *Node) Dispatch(req reqMsg) ReplyMsg {
 
 func (n *Node) GetRPCount() int {
 	return n.count
+}
+
+func (n *Node) handleCoordinator(req reqMsg) {
+	/*
+		1. Gather Quorum(Nodes)
+		2. Send them the task
+		3. Get the reply
+	*/
+	task := req
+	repl := make(chan ReplyMsg)
+	task.to = Worker
+	task.replyCh = repl
+
+	quorum := n.broadCaster.GatherQuorum()
+	// TODO check for MakeBroadCaster func, dangling reference?
+}
+
+func (n *Node) handleWorker() {
+	/*
+		1. Process the task
+		2. Send the result back
+	*/
+}
+
+func (n *Node) GetName() string {
+	return n.name
+}
+
+// ConnBroadCaster connects all BroadCaster to the node
+func (n *Node) ConnBroadCaster(bc *svc.BroadCaster) {
+	n.broadCaster = bc
 }

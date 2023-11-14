@@ -2,6 +2,7 @@ package net
 
 import (
 	"distgraphia/core/constants"
+	"distgraphia/core/svc"
 	"log"
 	"reflect"
 	"strconv"
@@ -23,7 +24,8 @@ type ReplyMsg struct {
 	reply []byte
 }
 
-// TO DO: think about removing mutex from the Network, I simply use channels
+// TODO: think about removing mutex from the Network, I simply use channels
+// Structure: Client.Call() --> [network <- request] --> network.processRequest() -->
 
 type Network struct {
 	mu          sync.Mutex
@@ -134,4 +136,16 @@ func (n *Network) ConnectClient(c *Client) {
 	} else {
 		log.Printf("Network.connect(): %s is already connected to the Network\n", c.GetName())
 	}
+}
+
+func (n *Network) Cleanup() {
+	close(n.done)
+}
+
+func (n *Network) GetNodes() map[string]*Node {
+	return n.nodes
+}
+
+func (n *Network) connectServices() {
+	svc.MakeBroadCaster(n)
 }

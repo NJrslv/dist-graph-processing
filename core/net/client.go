@@ -1,12 +1,5 @@
 package net
 
-import (
-	"bytes"
-	"encoding/gob"
-	"log"
-	"reflect"
-)
-
 type Client struct {
 	name        string
 	connections map[string]*Network // Networks, by name
@@ -30,22 +23,14 @@ func (c *Client) ConnectTo(net *Network) {
 // Call sends an RPC, waits for the reply.
 // The return value indicates success, false means that
 // no reply was received from the server.
-func (c *Client) Call(netName string, meth string, args interface{}, reply interface{}) bool {
+func (c *Client) Call(netName string, meth string, args string, reply *string) bool {
 	req := reqMsg{
 		clientName: c.GetName(),
 		meth:       meth,
 		to:         Coordinator,
-		argsType:   reflect.TypeOf(args),
+		args:       []byte(args),
 		replyCh:    make(chan ReplyMsg),
 	}
-
-	// Encode args
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(args); err != nil {
-		log.Fatalf("ClientEnd.Call(): gob encode args: %v\n", err)
-	}
-	req.args = buf.Bytes()
 
 	// Send the requests
 	net := c.connections[netName]
@@ -61,10 +46,7 @@ func (c *Client) Call(netName string, meth string, args interface{}, reply inter
 	rep := <-req.replyCh
 	if rep.ok {
 		// Decode reply
-		dec := gob.NewDecoder(bytes.NewBuffer(rep.reply))
-		if err := dec.Decode(reply); err != nil {
-			log.Fatalf("ClientEnd.Call(): gob decode reply: %v\n", err)
-		}
+		*reply = string(rep.reply)
 		return true
 	} else {
 		return false

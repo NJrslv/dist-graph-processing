@@ -14,10 +14,10 @@ const (
 )
 
 type Node struct {
-	name        string
-	count       int         // incoming RPCs
-	reqCh       chan reqMsg // requests to this particular node
-	broadCaster *svc.BroadCaster
+	name  string
+	count int         // incoming RPCs
+	reqCh chan reqMsg // requests to this particular node
+	bc    *svc.BroadCaster
 }
 
 func MakeNode(name string) *Node {
@@ -49,9 +49,10 @@ func (n *Node) Run(done chan struct{}) {
 			*/
 			switch req.to {
 			case Coordinator:
-				n.handleCoordinator(req)
+				reps := n.handleCoordinator(req)
+				// TODO sum the replies up, then put res into the req.replyCh
 			case Worker:
-				n.handleWorker()
+				n.handleWorker(req)
 			}
 		}
 	}
@@ -78,25 +79,48 @@ func (n *Node) GetRPCount() int {
 	return n.count
 }
 
-func (n *Node) handleCoordinator(req reqMsg) {
+func (n *Node) handleCoordinator(req reqMsg) []ReplyMsg {
 	/*
 		1. Gather Quorum(Nodes)
 		2. Send them the task
 		3. Get the reply
 	*/
-	task := req
-	repl := make(chan ReplyMsg)
-	task.to = Worker
-	task.replyCh = repl
+	quorum := n.bc.GatherQuorum()
+	// A channel to hold the responses from the Dispatch function
+	replyCh := make(chan ReplyMsg)
 
-	quorum := n.broadCaster.GatherQuorum()
-	// TODO check for MakeBroadCaster func, dangling reference?
+	for _, node := range quorum {
+		go func(node *Node) {
+			task := reqMsg{
+				clientName: node.GetName(),
+				meth:       req.meth,
+				to:         Worker,
+				args:       req.args,
+				replyCh:    replyCh,
+			}
+			node.Dispatch(task)
+		}(node)
+	}
+
+	var replies []ReplyMsg
+	for i := 0; i < len(quorum); i++ {
+		replies = append(replies, <-replyCh)
+	}
+
+	return replies
 }
 
-func (n *Node) handleWorker() {
+func (n *Node) handleWorker(req reqMsg) {
 	/*
 		1. Process the task
 		2. Send the result back
+	*/
+	methodName := req.meth
+	/*
+		pseudo: (reflectionMap[methodName]func()
+		meth := reflectionMap[methodName]
+		exec meth(req.args)
+		send the result
 	*/
 }
 
@@ -106,5 +130,5 @@ func (n *Node) GetName() string {
 
 // ConnBroadCaster connects all BroadCaster to the node
 func (n *Node) ConnBroadCaster(bc *svc.BroadCaster) {
-	n.broadCaster = bc
+	n.bc = bc
 }

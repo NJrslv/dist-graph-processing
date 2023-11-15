@@ -2,26 +2,24 @@ package svc
 
 import "distgraphia/core/net"
 
+// BroadCaster broadcasts the message across the network,
+// each node has its own BroadCaster service
 type BroadCaster struct {
-	NodeNetwork map[string]*net.Network // nodes <-> Networks
-	nodeName    string                  // node that uses broadcaster
+	Net      *net.Network // Network
+	NodeName string       // node that uses broadcaster
 }
 
-func MakeBroadCaster(n *net.Network) {
-	bc := &BroadCaster{
-		NodeNetwork: make(map[string]*net.Network),
-	}
-	for nodeName, node := range n.GetNodes() {
-		bc.NodeNetwork[nodeName] = n
-		bc.nodeName = nodeName
-		node.ConnBroadCaster(bc)
+func MakeBroadCaster(n *net.Network) *BroadCaster {
+	return &BroadCaster{
+		Net:      n,
+		NodeName: "",
 	}
 }
 
 func (bc *BroadCaster) GatherQuorum() map[string]*net.Node {
-	nodeNet := bc.NodeNetwork[bc.nodeName]
-	return nodeNet.GetNodes()
+	return bc.Net.GetNodes()
 }
 
 type Storage struct {
+	// for each node different Storage instance
 }

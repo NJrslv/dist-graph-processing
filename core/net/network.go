@@ -4,7 +4,6 @@ import (
 	"distgraphia/core/constants"
 	"distgraphia/core/svc"
 	"log"
-	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -14,7 +13,6 @@ type reqMsg struct {
 	clientName string // name of sending Client
 	meth       string // e.g. "Print"
 	to         Role   // client sends to Coordinator, Coordinator to Worker
-	argsType   reflect.Type
 	args       []byte
 	replyCh    chan ReplyMsg
 }
@@ -55,6 +53,9 @@ func MakeNetwork(name string) *Network {
 		count:       0,
 		bytes:       0,
 	}
+
+	bc := svc.MakeBroadCaster(net)
+	net.connectServices(bc)
 
 	// single goroutine to handle all Client Call()s
 	go func() {
@@ -142,10 +143,14 @@ func (n *Network) Cleanup() {
 	close(n.done)
 }
 
-func (n *Network) GetNodes() map[string]*Node {
-	return n.nodes
+func (n *Network) connectServices(bc *svc.BroadCaster) {
+	for nodeName, node := range n.nodes {
+		bc.Net = n
+		bc.NodeName = nodeName
+		node.ConnBroadCaster(bc)
+	}
 }
 
-func (n *Network) connectServices() {
-	svc.MakeBroadCaster(n)
+func (n *Network) GetNodes() map[string]*Node {
+	return n.nodes
 }

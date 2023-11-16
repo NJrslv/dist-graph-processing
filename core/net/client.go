@@ -20,9 +20,9 @@ func (c *Client) ConnectTo(net *Network) {
 	net.ConnectClient(c)
 }
 
-// Call sends an RPC, waits for the reply.
+// Call sends an RPC, waits for the Reply.
 // The return value indicates success, false means that
-// no reply was received from the server.
+// no Reply was received from the server.
 func (c *Client) Call(netName string, meth string, args string, reply *string) bool {
 	req := reqMsg{
 		clientName: c.GetName(),
@@ -42,11 +42,11 @@ func (c *Client) Call(netName string, meth string, args string, reply *string) b
 		return false
 	}
 
-	// Wait for the reply.
+	// Wait for the Reply.
 	rep := <-req.replyCh
-	if rep.ok {
-		// Decode reply
-		*reply = string(rep.reply)
+	if rep.Ok {
+		// Decode Reply
+		*reply = string(rep.Reply)
 		return true
 	} else {
 		return false

@@ -2,7 +2,6 @@ package net
 
 import (
 	"distgraphia/core/constants"
-	"distgraphia/core/svc"
 	"log"
 	"strconv"
 	"sync"
@@ -18,8 +17,8 @@ type reqMsg struct {
 }
 
 type ReplyMsg struct {
-	ok    bool
-	reply []byte
+	Ok    bool
+	Reply []byte
 }
 
 // TODO: think about removing mutex from the Network, I simply use channels
@@ -54,8 +53,10 @@ func MakeNetwork(name string) *Network {
 		bytes:       0,
 	}
 
-	bc := svc.MakeBroadCaster(net)
-	net.connectServices(bc)
+	methods := []string{"CountNodes"}
+	methInv := MakeMethodInvoker(methods)
+	bc := MakeBroadCaster(net)
+	net.connectServices(bc, methInv)
 
 	// single goroutine to handle all Client Call()s
 	go func() {
@@ -143,11 +144,13 @@ func (n *Network) Cleanup() {
 	close(n.done)
 }
 
-func (n *Network) connectServices(bc *svc.BroadCaster) {
+func (n *Network) connectServices(bc *BroadCaster, methInv *MethodInvoker) {
 	for nodeName, node := range n.nodes {
 		bc.Net = n
 		bc.NodeName = nodeName
-		node.ConnBroadCaster(bc)
+		methInv.NodeName = nodeName
+
+		node.ConnServices(bc, methInv)
 	}
 }
 

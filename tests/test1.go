@@ -1,4 +1,4 @@
-package tests
+package main
 
 import "distgraphia/core/net"
 
@@ -10,6 +10,6 @@ func main() {
 	cl1.ConnectTo(net1)
 
 	reply := ""
-	cl1.Call("n1", "countNodes", "1", &reply)
+	cl1.Call("n1", "CountNodes", "", &reply)
 
 }

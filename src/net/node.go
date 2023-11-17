@@ -1,9 +1,7 @@
 package net
 
 import (
-	"encoding/binary"
 	"log"
-	"strconv"
 	"time"
 )
 
@@ -109,23 +107,8 @@ func (n *Node) handleCoordinator(req reqMsg) ReplyMsg {
 		replies = append(replies, <-replyCh)
 	}
 
-	aggReply := n.aggregateReplies(req.meth, replies)
-	return aggReply
-}
-
-func (n *Node) aggregateReplies(method string, replies []ReplyMsg) ReplyMsg {
-	// TODO after testing move methods to the algorithms + check Mutexes
-	switch method {
-	case "SUM":
-		sum := 0
-		for _, reply := range replies {
-			sum += int(binary.LittleEndian.Uint64(reply.Reply))
-		}
-		return ReplyMsg{Ok: true, Reply: []byte(strconv.Itoa(sum))}
-	default:
-		log.Print("Node.aggregateReplies(): Unknown method")
-		return ReplyMsg{Ok: false, Reply: []byte("Unknown method")}
-	}
+	aggReply := n.methInv.InvokeMethod(req.meth+"Reduce", replies)
+	return aggReply.(ReplyMsg)
 }
 
 func (n *Node) handleWorker(req reqMsg) {
@@ -134,11 +117,8 @@ func (n *Node) handleWorker(req reqMsg) {
 		2. Send the result back
 	*/
 	methodName := req.meth
-	res := n.methInv.InvokeMethod(methodName, string(req.args))
-	/*
-		meth := req.meth
-		res := n.methInv.InvokeMethod(methodName + ".Map()", string(req.args))
-	*/
+	res := n.methInv.InvokeMethod(methodName+"Map", string(req.args))
+
 	var repl ReplyMsg
 	if len(res.(string)) == 0 {
 		repl.Ok = false

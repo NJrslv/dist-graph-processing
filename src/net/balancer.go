@@ -1,7 +1,6 @@
 package net
 
 import (
-	"distgraphia/core/constants"
 	"sync"
 )
 
@@ -16,12 +15,12 @@ import (
 */
 
 type LoadBalancer struct {
-	nodes   [constants.NumNodes]*Node
+	nodes   [NumNodes]*Node
 	current int
 	mu      sync.Mutex
 }
 
-func MakeLoadBalancer(nodes [constants.NumNodes]*Node) LoadBalancer {
+func MakeLoadBalancer(nodes [NumNodes]*Node) LoadBalancer {
 	return LoadBalancer{
 		nodes:   nodes,
 		current: 0,

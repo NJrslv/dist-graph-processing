@@ -1,12 +1,14 @@
 package main
 
-import "distgraphia/core/net"
+import (
+	net2 "distgraphia/src/net"
+)
 
 func main() {
-	net1 := net.MakeNetwork("n1")
+	net1 := net2.MakeNetwork("n1")
 	defer net1.Cleanup()
 
-	cl1 := net.MakeClient("c1")
+	cl1 := net2.MakeClient("c1")
 	cl1.ConnectTo(net1)
 
 	reply := ""

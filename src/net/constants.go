@@ -1,4 +1,4 @@
-package constants
+package net
 
 const (
 	NumNodes = 100

@@ -1,7 +1,6 @@
 package net
 
 import (
-	"distgraphia/core/constants"
 	"log"
 	"strconv"
 	"sync"
@@ -102,7 +101,7 @@ func (n *Network) readClientInfo(req reqMsg) (*Client, *Node) {
 	nodeName, nodeOk := n.connections[req.clientName]
 
 	if !clientOk || !nodeOk {
-		log.Print("Network.readClientInfo(): There is no client or coordinator")
+		log.Fatalf("Network.readClientInfo(): There is no client or coordinator")
 		return nil, nil
 	}
 
@@ -112,11 +111,11 @@ func (n *Network) readClientInfo(req reqMsg) (*Client, *Node) {
 
 // MakeNodes creates 'NumNodes' workers
 // with the names '1', '2', ... , 'NumNodes'
-func MakeNodes() ([constants.NumNodes]*Node, map[string]*Node) {
-	var nodes [constants.NumNodes]*Node
-	nodeMap := make(map[string]*Node, constants.NumNodes)
+func MakeNodes() ([NumNodes]*Node, map[string]*Node) {
+	var nodes [NumNodes]*Node
+	nodeMap := make(map[string]*Node, NumNodes)
 
-	for i := 0; i < constants.NumNodes; i++ {
+	for i := 0; i < NumNodes; i++ {
 		nodeName := strconv.Itoa(i)
 		node := MakeNode(nodeName)
 
@@ -134,7 +133,10 @@ func (n *Network) ConnectClient(c *Client) {
 	_, ok := n.clients[c.GetName()]
 	if !ok {
 		coordinator := n.lb.GetNextNode()
+
+		n.clients[c.GetName()] = c
 		n.connections[c.GetName()] = coordinator.name
+		c.connections[n.name] = n
 	} else {
 		log.Printf("Network.connect(): %s is already connected to the Network\n", c.GetName())
 	}

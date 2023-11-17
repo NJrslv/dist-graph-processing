@@ -47,7 +47,8 @@ func MakeMethodInvoker(methods []string) *MethodInvoker {
 		NodeName:      "",
 	}
 	for _, methodName := range methods {
-		mi.reflectionMap[methodName] = getFuncByName(methodName)
+		mi.reflectionMap[methodName+"Map"] = getFuncByName(methodName + "Map")
+		mi.reflectionMap[methodName+"Reduce"] = getFuncByName(methodName + "Reduce")
 	}
 	return mi
 }
@@ -56,12 +57,12 @@ func (mi *MethodInvoker) RegisterMethod(name string, method anyFunc) {
 	mi.reflectionMap[name] = method
 }
 
-func (mi *MethodInvoker) InvokeMethod(methodName string, args string) interface{} {
+func (mi *MethodInvoker) InvokeMethod(methodName string, args interface{}) interface{} {
 	if method, ok := mi.reflectionMap[methodName]; ok {
 		a := method(args)
 		return a
 	}
-	log.Printf("Service.InvokeMethod(): Method '%s' not found", methodName)
+	log.Fatalf("Service.InvokeMethod(): Method '%s' not found", methodName)
 	return ""
 }
 
@@ -72,7 +73,7 @@ func getFuncByName(name string) anyFunc {
 	case "CountNodesReduce":
 		return CountNodesReduce
 	default:
-		log.Printf("Service:getFuncByName(): No func named %s", name)
+		log.Fatalf("Service:getFuncByName(): No func named %s", name)
 		return nil
 	}
 }

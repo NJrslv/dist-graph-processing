@@ -2,6 +2,7 @@ package net
 
 import (
 	"log"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -24,7 +25,6 @@ type ReplyMsg struct {
 // Structure: Client.Call() --> [network <- request] --> network.processRequest() -->
 
 type Network struct {
-	mu          sync.Mutex
 	name        string
 	reliable    bool
 	clients     map[string]*Client // clients, by name
@@ -35,10 +35,12 @@ type Network struct {
 	clientCh    chan reqMsg        // chan with requests from clients
 	count       int32              // total RPC count, for statistics
 	bytes       int64              // total bytes send, for statistics
+	wg          sync.WaitGroup
 }
 
 func MakeNetwork(name string) *Network {
-	nodes, nodesByName := MakeNodes()
+	done := make(chan struct{})
+	nodes, nodesByName := MakeNodes(done)
 	net := &Network{
 		name:        name,
 		reliable:    true,
@@ -46,7 +48,7 @@ func MakeNetwork(name string) *Network {
 		nodes:       nodesByName,
 		connections: make(map[string]string),
 		lb:          MakeLoadBalancer(nodes),
-		done:        make(chan struct{}),
+		done:        done,
 		clientCh:    make(chan reqMsg),
 		count:       0,
 		bytes:       0,
@@ -75,6 +77,7 @@ func MakeNetwork(name string) *Network {
 }
 
 func (n *Network) processReq(req reqMsg) {
+	log.Printf(" %d : network.processReq()", runtime.NumGoroutine())
 	client, coordinator := n.readClientInfo(req)
 
 	if client != nil && coordinator != nil {
@@ -88,6 +91,7 @@ func (n *Network) processReq(req reqMsg) {
 		// wait for handler to return
 		var reply ReplyMsg
 		replyOK := false
+		// TODO busy waiting (Wait groups)
 		for replyOK == false {
 			reply = <-ech
 			replyOK = true
@@ -111,13 +115,13 @@ func (n *Network) readClientInfo(req reqMsg) (*Client, *Node) {
 
 // MakeNodes creates 'NumNodes' workers
 // with the names '1', '2', ... , 'NumNodes'
-func MakeNodes() ([NumNodes]*Node, map[string]*Node) {
+func MakeNodes(done chan struct{}) ([NumNodes]*Node, map[string]*Node) {
 	var nodes [NumNodes]*Node
 	nodeMap := make(map[string]*Node, NumNodes)
 
 	for i := 0; i < NumNodes; i++ {
 		nodeName := strconv.Itoa(i)
-		node := MakeNode(nodeName)
+		node := MakeNode(nodeName, done)
 
 		nodes[i] = node
 		nodeMap[nodeName] = node
@@ -127,9 +131,6 @@ func MakeNodes() ([NumNodes]*Node, map[string]*Node) {
 
 // ConnectClient maps client and node
 func (n *Network) ConnectClient(c *Client) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-
 	_, ok := n.clients[c.GetName()]
 	if !ok {
 		coordinator := n.lb.GetNextNode()

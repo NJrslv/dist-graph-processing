@@ -2,6 +2,7 @@ package net
 
 import (
 	"log"
+	"runtime"
 	"time"
 )
 
@@ -18,26 +19,27 @@ type Node struct {
 	reqCh   chan reqMsg // requests to this particular node
 	bc      *BroadCaster
 	methInv *MethodInvoker
+	done    chan struct{} // closed when Network is cleaned up
 }
 
-func MakeNode(name string) *Node {
+func MakeNode(name string, done chan struct{}) *Node {
 	return &Node{
 		name:  name,
 		count: 0,
 		reqCh: make(chan reqMsg),
+		done:  done,
 		// svc is connected in Network
 	}
 }
 
-// Run is simplified, Run() represents a goroutine,
-// and also it is a Node in the system
+// Run represents a goroutine,
+// and also it is a node in the system
 // each Node can concurrently process the requests
-// but in this implementation it is done sequentially
-// simply add go handleRequest() and create chan of sub-replies
-func (n *Node) Run(done chan struct{}) {
+func (n *Node) Run() {
+	log.Printf(" %d : node.Run()", runtime.NumGoroutine())
 	for {
 		select {
-		case <-done:
+		case <-n.done:
 			// Entire Network has been destroyed.
 			return
 		case req := <-n.reqCh:
@@ -49,6 +51,7 @@ func (n *Node) Run(done chan struct{}) {
 			*/
 			switch req.to {
 			case Coordinator:
+				// TODO go handleCoordinator + handleWorker
 				reply := n.handleCoordinator(req)
 				req.replyCh <- reply
 			case Worker:
@@ -58,13 +61,17 @@ func (n *Node) Run(done chan struct{}) {
 	}
 }
 
+// TODO my workers cannot pass the replies to the coordinator => we sleep, check logs
+
 func (n *Node) Dispatch(req reqMsg) ReplyMsg {
+	log.Printf(" %d : node.Dispatch()", runtime.NumGoroutine())
 	/*
 			1. Put the encoded request in the requestChan in the Node.
 			2. The Goroutine running the node.Run() function
 		       will handle the request and place the response
 		       in the request.replyChan.
 	*/
+	go n.Run()
 	n.reqCh <- req
 	select {
 	case reply := <-req.replyCh:
@@ -80,6 +87,7 @@ func (n *Node) GetRPCount() int {
 }
 
 func (n *Node) handleCoordinator(req reqMsg) ReplyMsg {
+	log.Printf(" %d : node.handleCoordinator()", runtime.NumGoroutine())
 	/*
 		1. Gather Quorum(Nodes)
 		2. Send them the task
@@ -112,6 +120,7 @@ func (n *Node) handleCoordinator(req reqMsg) ReplyMsg {
 }
 
 func (n *Node) handleWorker(req reqMsg) {
+	log.Printf(" %d : node.handleWorker()", runtime.NumGoroutine())
 	/*
 		1. Process the task
 		2. Send the result back

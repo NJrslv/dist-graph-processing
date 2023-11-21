@@ -53,10 +53,6 @@ func MakeMethodInvoker(methods []string) *MethodInvoker {
 	return mi
 }
 
-func (mi *MethodInvoker) RegisterMethod(name string, method anyFunc) {
-	mi.reflectionMap[name] = method
-}
-
 func (mi *MethodInvoker) InvokeMethod(methodName string, args interface{}) interface{} {
 	if method, ok := mi.reflectionMap[methodName]; ok {
 		a := method(args)

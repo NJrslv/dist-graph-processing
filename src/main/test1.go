@@ -2,6 +2,7 @@ package main
 
 import (
 	"distgraphia/src/net"
+	"fmt"
 )
 
 func main() {
@@ -13,4 +14,5 @@ func main() {
 
 	reply := ""
 	cl1.Call("n1", "CountNodes", "", &reply)
+	defer fmt.Printf("Reply for %s is %s", cl1.GetName(), reply)
 }

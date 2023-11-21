@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+/*
+	- Nodes are communicating using their channels (node.replyCh / node.reqCh)
+	- Nodes are communicating with clients using request channel (req.ReplyCh)
+*/
+
+// TODO check why 1110 when 1000 nodes, check for races, run the system with 1e3 nodes
+
 type Role int
 
 const (
@@ -15,28 +22,27 @@ const (
 
 type Node struct {
 	name    string
-	count   int         // incoming RPCs
-	reqCh   chan reqMsg // requests to this particular node
-	bc      *BroadCaster
-	methInv *MethodInvoker
-	done    chan struct{} // closed when Network is cleaned up
+	count   int            // incoming RPCs
+	reqCh   chan reqMsg    // requests to this node
+	bc      *BroadCaster   // see service.go/BroadCaster
+	methInv *MethodInvoker // see service.go/MethodInvoker
+	done    chan struct{}  // closed when Network is cleaned up
 }
 
 func MakeNode(name string, done chan struct{}) *Node {
 	return &Node{
 		name:  name,
 		count: 0,
-		reqCh: make(chan reqMsg),
+		reqCh: make(chan reqMsg, 1),
 		done:  done,
-		// svc is connected in Network
 	}
 }
 
 // Run represents a goroutine,
 // and also it is a node in the system
-// each Node can concurrently process the requests
-func (n *Node) Run() {
+func (n *Node) Run(replyCh chan ReplyMsg) {
 	log.Printf(" %d : node.Run()", runtime.NumGoroutine())
+
 	for {
 		select {
 		case <-n.done:
@@ -44,97 +50,107 @@ func (n *Node) Run() {
 			return
 		case req := <-n.reqCh:
 			/*
-				handle the request:
-						1. decode and execute
-						2. encode
-				put encoded Reply to the req.replyCh
+				1. handle a request
+				2. send a reply
 			*/
+			var reply ReplyMsg
 			switch req.to {
 			case Coordinator:
-				// TODO go handleCoordinator + handleWorker
-				reply := n.handleCoordinator(req)
-				req.replyCh <- reply
+				reply = <-n.handleCoordinator(req)
 			case Worker:
-				n.handleWorker(req)
+				reply = <-n.handleWorker(req)
 			}
+			replyCh <- reply
 		}
 	}
 }
 
-// TODO my workers cannot pass the replies to the coordinator => we sleep, check logs
-
-func (n *Node) Dispatch(req reqMsg) ReplyMsg {
+func (n *Node) Dispatch(req reqMsg) <-chan ReplyMsg {
 	log.Printf(" %d : node.Dispatch()", runtime.NumGoroutine())
-	/*
-			1. Put the encoded request in the requestChan in the Node.
-			2. The Goroutine running the node.Run() function
-		       will handle the request and place the response
-		       in the request.replyChan.
-	*/
-	go n.Run()
-	n.reqCh <- req
-	select {
-	case reply := <-req.replyCh:
-		return reply
-	case <-time.After(time.Second * 5): // Timeout after 5 seconds
-		log.Print("Node.Dispatch(): timeout waiting for Reply")
-		return ReplyMsg{false, nil}
-	}
+
+	reply := make(chan ReplyMsg)
+	go func() {
+		// send the reply to the node.requestChan
+		n.reqCh <- req
+
+		repl := make(chan ReplyMsg)
+		go n.Run(repl)
+
+		select {
+		case r := <-repl:
+			reply <- r
+			log.Printf(" %d : node.Dispatch() Reply with %s", runtime.NumGoroutine(), string(r.Reply))
+		case <-time.After(time.Second * 2): // Timeout after 2 seconds
+			log.Printf(" %d : node.Dispatch(): timeout waiting for Reply", runtime.NumGoroutine())
+			reply <- ReplyMsg{false, nil}
+		}
+	}()
+	return reply
 }
 
 func (n *Node) GetRPCount() int {
 	return n.count
 }
 
-func (n *Node) handleCoordinator(req reqMsg) ReplyMsg {
+func (n *Node) handleCoordinator(req reqMsg) <-chan ReplyMsg {
 	log.Printf(" %d : node.handleCoordinator()", runtime.NumGoroutine())
 	/*
 		1. Gather Quorum(Nodes)
 		2. Send them the task
 		3. Get the Reply
 	*/
-	quorum := n.bc.GatherQuorum()
-	// A channel to hold the responses from the Dispatch function
-	replyCh := make(chan ReplyMsg)
+	reply := make(chan ReplyMsg)
+	go func() {
+		quorum := n.bc.GatherQuorum()
+		replyCh := make(chan ReplyMsg, len(quorum)+1)
 
-	for _, node := range quorum {
-		go func(node *Node) {
-			task := reqMsg{
-				clientName: node.GetName(),
-				meth:       req.meth,
-				to:         Worker,
-				args:       req.args,
-				replyCh:    replyCh,
-			}
-			node.Dispatch(task)
-		}(node)
-	}
+		// Scatter
+		for _, node := range quorum {
+			go func(node *Node) {
+				task := reqMsg{
+					clientName: node.GetName(),
+					meth:       req.meth,
+					to:         Worker,
+					args:       req.args,
+					replyCh:    req.replyCh,
+				}
+				rep := <-node.Dispatch(task)
+				replyCh <- rep
+			}(node)
+		}
 
-	var replies []ReplyMsg
-	for i := 0; i < len(quorum); i++ {
-		replies = append(replies, <-replyCh)
-	}
+		// Gather
+		var replies []ReplyMsg
+		for i := 0; i < len(quorum); i++ {
+			replies = append(replies, <-replyCh)
+		}
 
-	aggReply := n.methInv.InvokeMethod(req.meth+"Reduce", replies)
-	return aggReply.(ReplyMsg)
+		agg := n.methInv.InvokeMethod(req.meth+"Reduce", replies).(int)
+		reply <- ReplyMsg{true, intToStrBytes(agg)}
+	}()
+	return reply
 }
 
-func (n *Node) handleWorker(req reqMsg) {
+func (n *Node) handleWorker(req reqMsg) <-chan ReplyMsg {
 	log.Printf(" %d : node.handleWorker()", runtime.NumGoroutine())
 	/*
 		1. Process the task
 		2. Send the result back
 	*/
-	methodName := req.meth
-	res := n.methInv.InvokeMethod(methodName+"Map", string(req.args))
+	reply := make(chan ReplyMsg)
+	go func() {
+		methodName := req.meth
+		res := n.methInv.InvokeMethod(methodName+"Map", string(req.args))
 
-	var repl ReplyMsg
-	if len(res.(string)) == 0 {
-		repl.Ok = false
-	}
+		var repl ReplyMsg
+		if len(res.(string)) == 0 {
+			repl.Ok = false
+		}
 
-	repl.Reply = []byte(res.(string))
-	req.replyCh <- repl
+		repl.Reply = []byte(res.(string))
+		reply <- repl
+	}()
+	return reply
 }
 
 func (n *Node) GetName() string {

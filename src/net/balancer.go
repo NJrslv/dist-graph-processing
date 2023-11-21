@@ -1,9 +1,5 @@
 package net
 
-import (
-	"sync"
-)
-
 /*
 	We use Round Robin algorithm because we only have RPC counts
 	to assess node usage, and they can change quickly as nodes interact.
@@ -17,7 +13,6 @@ import (
 type LoadBalancer struct {
 	nodes   [NumNodes]*Node
 	current int
-	mu      sync.Mutex
 }
 
 func MakeLoadBalancer(nodes [NumNodes]*Node) LoadBalancer {

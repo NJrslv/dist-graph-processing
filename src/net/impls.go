@@ -1,7 +1,7 @@
 package net
 
 import (
-	"encoding/binary"
+	"strconv"
 )
 
 func CountNodesMap(interface{}) interface{} {
@@ -11,13 +11,13 @@ func CountNodesMap(interface{}) interface{} {
 func CountNodesReduce(replies interface{}) interface{} {
 	count := 0
 	for _, reply := range replies.([]ReplyMsg) {
-		count += int(binary.LittleEndian.Uint64(reply.Reply))
+		repInt, _ := strconv.Atoi(string(reply.Reply))
+		count += repInt
 	}
-	return ReplyMsg{Ok: true, Reply: intToBytes(count)}
+	return count
 }
 
-func intToBytes(i int) []byte {
-	b := make([]byte, 4) // Assuming int is 4 bytes
-	binary.LittleEndian.PutUint32(b, uint32(i))
-	return b
+func intToStrBytes(i int) []byte {
+	s := strconv.Itoa(i)
+	return []byte(s)
 }

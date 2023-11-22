@@ -4,6 +4,7 @@ import (
 	"log"
 	"runtime"
 	"strconv"
+	"sync"
 	"sync/atomic"
 )
 
@@ -18,6 +19,7 @@ type Network struct {
 	clientCh    chan reqMsg        // chan with requests from clients
 	count       int32              // total RPC count, for statistics
 	bytes       int64              // total bytes send, for statistics
+	mu          sync.Mutex         // protects Network data(concurrent clients)
 }
 
 func MakeNetwork(name string) *Network {
@@ -31,7 +33,7 @@ func MakeNetwork(name string) *Network {
 		connections: make(map[string]string),
 		lb:          MakeLoadBalancer(nodes),
 		done:        done,
-		clientCh:    make(chan reqMsg),
+		clientCh:    make(chan reqMsg, 1),
 		count:       0,
 		bytes:       0,
 	}
@@ -40,7 +42,6 @@ func MakeNetwork(name string) *Network {
 
 	// single goroutine to handle all Client Call()s
 	go func() {
-		// net.RunNodes()
 		for {
 			select {
 			case req := <-net.clientCh:
@@ -70,6 +71,9 @@ func (n *Network) processReq(req reqMsg) {
 }
 
 func (n *Network) readClientInfo(req reqMsg) (*Client, *Node) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
 	client, clientOk := n.clients[req.clientName]
 	nodeName, nodeOk := n.connections[req.clientName]
 
@@ -100,6 +104,9 @@ func MakeNodes(done chan struct{}) ([NumNodes]*Node, map[string]*Node) {
 
 // ConnectClient maps client and node
 func (n *Network) ConnectClient(c *Client) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
 	_, ok := n.clients[c.GetName()]
 	if !ok {
 		coordinator := n.lb.GetNextNode()
@@ -133,9 +140,3 @@ func (n *Network) connectServices() {
 func (n *Network) GetNodes() map[string]*Node {
 	return n.nodes
 }
-
-/*func (n *Network) RunNodes() {
-	for _, node := range n.nodes {
-		go node.Run()
-	}
-}*/

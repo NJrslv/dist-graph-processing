@@ -3,6 +3,7 @@ package net
 import (
 	"log"
 	"runtime"
+	"sync/atomic"
 	"time"
 )
 
@@ -10,8 +11,6 @@ import (
 	- Nodes are communicating using their channels (node.replyCh / node.reqCh)
 	- Nodes are communicating with clients using request channel (req.ReplyCh)
 */
-
-// TODO check why 1110 when 1000 nodes, check for races, run the system with 1e3 nodes
 
 type Role int
 
@@ -22,7 +21,7 @@ const (
 
 type Node struct {
 	name    string
-	count   int            // incoming RPCs
+	count   int32          // incoming RPCs
 	reqCh   chan reqMsg    // requests to this node
 	bc      *BroadCaster   // see service.go/BroadCaster
 	methInv *MethodInvoker // see service.go/MethodInvoker
@@ -68,6 +67,7 @@ func (n *Node) Run(replyCh chan ReplyMsg) {
 func (n *Node) Dispatch(req reqMsg) <-chan ReplyMsg {
 	log.Printf(" %d : node.Dispatch()", runtime.NumGoroutine())
 
+	atomic.AddInt32(&n.count, 1)
 	reply := make(chan ReplyMsg)
 	go func() {
 		// send the reply to the node.requestChan
@@ -88,7 +88,7 @@ func (n *Node) Dispatch(req reqMsg) <-chan ReplyMsg {
 	return reply
 }
 
-func (n *Node) GetRPCount() int {
+func (n *Node) GetRPCount() int32 {
 	return n.count
 }
 

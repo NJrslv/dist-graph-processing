@@ -27,6 +27,7 @@ type Node struct {
 	methInv *MethodInvoker // see service.go/MethodInvoker
 	done    chan struct{}  // closed when Network is cleaned up
 	count   int32          // total RPC count, for statistics
+	g       Graph
 }
 
 func MakeNode(name string, done chan struct{}) *Node {

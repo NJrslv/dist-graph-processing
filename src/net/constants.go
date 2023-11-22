@@ -1,5 +1,6 @@
 package net
 
 const (
-	NumNodes = 1000
+	NumNodes  = 10
+	GraphPath = "src/graph.txt"
 )

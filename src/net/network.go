@@ -128,6 +128,8 @@ func (n *Network) connectServices() {
 
 		node.ConnServices(bc, methInv)
 	}
+
+	InitGraphs(GraphPath, n.nodes)
 }
 
 func (n *Network) GetNodes() map[string]*Node {

@@ -74,6 +74,19 @@ func testCountNodesMultClient(clientCount int) []string {
 	return replies
 }
 
+func testCountConnComponents() string {
+	net.CreateTestGraphs("src/graph.txt")
+	net3 := net.MakeNetwork("n3")
+	defer net3.Cleanup()
+
+	cl1 := net.MakeClient("cl1")
+	cl1.ConnectTo(net3)
+
+	reply := ""
+	cl1.Call("n3", "CountConnectedComponents", "", &reply)
+	return reply
+}
+
 func main() {
 	disableLogs()
 	// test1
@@ -86,4 +99,7 @@ func main() {
 		expectedReplies[i] = strconv.Itoa(net.NumNodes)
 	}
 	assert("Test CountNodes on Multiple Client Calls", testCountNodesMultClient(clientCount), expectedReplies)
+
+	// test3
+	fmt.Print(testCountConnComponents())
 }

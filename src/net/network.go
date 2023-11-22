@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
-	"sync/atomic"
 )
 
 type Network struct {
@@ -17,8 +16,6 @@ type Network struct {
 	lb          LoadBalancer       // circular queue of nodes
 	done        chan struct{}      // closed when Network is cleaned up
 	clientCh    chan reqMsg        // chan with requests from clients
-	count       int32              // total RPC count, for statistics
-	bytes       int64              // total bytes send, for statistics
 	mu          sync.Mutex         // protects Network data(concurrent clients)
 }
 
@@ -34,8 +31,6 @@ func MakeNetwork(name string) *Network {
 		lb:          MakeLoadBalancer(nodes),
 		done:        done,
 		clientCh:    make(chan reqMsg, 1),
-		count:       0,
-		bytes:       0,
 	}
 
 	net.connectServices()
@@ -45,8 +40,6 @@ func MakeNetwork(name string) *Network {
 		for {
 			select {
 			case req := <-net.clientCh:
-				atomic.AddInt32(&net.count, 1)
-				atomic.AddInt64(&net.bytes, int64(len(req.args)))
 				go net.processReq(req)
 			case <-net.done:
 				log.Printf("Network %s is done...", net.name)
@@ -139,4 +132,15 @@ func (n *Network) connectServices() {
 
 func (n *Network) GetNodes() map[string]*Node {
 	return n.nodes
+}
+
+func (n *Network) GetRPCount() int32 {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	rpcCount := int32(0)
+	for _, node := range n.nodes {
+		rpcCount += node.count
+	}
+	return rpcCount
 }

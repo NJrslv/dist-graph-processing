@@ -1,5 +1,5 @@
 package net
 
 const (
-	NumNodes = 10
+	NumNodes = 1000
 )

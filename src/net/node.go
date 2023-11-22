@@ -8,7 +8,8 @@ import (
 )
 
 /*
-	- Nodes are communicating using their channels (node.replyCh / node.reqCh)
+	- Nodes are communicating using connections
+		(channels that are created when needed to send/get the request/reply)
 	- Nodes are communicating with clients using request channel (req.ReplyCh)
 */
 
@@ -20,67 +21,56 @@ const (
 )
 
 type Node struct {
-	name    string
-	count   int32          // incoming RPCs
-	reqCh   chan reqMsg    // requests to this node
+	name string
+	// reqCh   chan reqMsg    // requests to this node
 	bc      *BroadCaster   // see service.go/BroadCaster
 	methInv *MethodInvoker // see service.go/MethodInvoker
 	done    chan struct{}  // closed when Network is cleaned up
+	count   int32          // total RPC count, for statistics
 }
 
 func MakeNode(name string, done chan struct{}) *Node {
 	return &Node{
-		name:  name,
-		count: 0,
-		reqCh: make(chan reqMsg, 1),
+		name: name,
+		//reqCh: make(chan reqMsg, 1),
 		done:  done,
+		count: 0,
 	}
 }
 
 // Run represents a goroutine,
 // and also it is a node in the system
-func (n *Node) Run(replyCh chan ReplyMsg) {
+func (n *Node) Run(req reqMsg, replyCh chan ReplyMsg) {
 	log.Printf(" %d : node.Run()", runtime.NumGoroutine())
 
-	for {
-		select {
-		case <-n.done:
-			// Entire Network has been destroyed.
-			return
-		case req := <-n.reqCh:
-			/*
-				1. handle a request
-				2. send a reply
-			*/
-			var reply ReplyMsg
-			switch req.to {
-			case Coordinator:
-				reply = <-n.handleCoordinator(req)
-			case Worker:
-				reply = <-n.handleWorker(req)
-			}
-			replyCh <- reply
-		}
+	var reply ReplyMsg
+	switch req.to {
+	case Coordinator:
+		reply = <-n.handleCoordinator(req)
+	case Worker:
+		reply = <-n.handleWorker(req)
 	}
+	replyCh <- reply
 }
 
 func (n *Node) Dispatch(req reqMsg) <-chan ReplyMsg {
 	log.Printf(" %d : node.Dispatch()", runtime.NumGoroutine())
 
+	// stat
 	atomic.AddInt32(&n.count, 1)
+
 	reply := make(chan ReplyMsg)
 	go func() {
 		// send the reply to the node.requestChan
-		n.reqCh <- req
-
 		repl := make(chan ReplyMsg)
-		go n.Run(repl)
+		go n.Run(req, repl)
 
+		// get the reply
 		select {
 		case r := <-repl:
 			reply <- r
 			log.Printf(" %d : node.Dispatch() Reply with %s", runtime.NumGoroutine(), string(r.Reply))
-		case <-time.After(time.Second * 2): // Timeout after 2 seconds
+		case <-time.After(time.Second * 3): // Timeout after 2 seconds
 			log.Printf(" %d : node.Dispatch(): timeout waiting for Reply", runtime.NumGoroutine())
 			reply <- ReplyMsg{false, nil}
 		}
@@ -89,7 +79,7 @@ func (n *Node) Dispatch(req reqMsg) <-chan ReplyMsg {
 }
 
 func (n *Node) GetRPCount() int32 {
-	return n.count
+	return atomic.LoadInt32(&n.count)
 }
 
 func (n *Node) handleCoordinator(req reqMsg) <-chan ReplyMsg {
@@ -102,7 +92,7 @@ func (n *Node) handleCoordinator(req reqMsg) <-chan ReplyMsg {
 	reply := make(chan ReplyMsg)
 	go func() {
 		quorum := n.bc.GatherQuorum()
-		replyCh := make(chan ReplyMsg, len(quorum)+1)
+		replyCh := make(chan ReplyMsg, len(quorum))
 
 		// Scatter
 		for _, node := range quorum {

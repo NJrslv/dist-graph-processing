@@ -42,6 +42,9 @@ func testCountNodes() string {
 
 	reply := ""
 	cl1.Call("n1", "CountNodes", "", &reply)
+
+	fmt.Printf("Network n1 | RPC count: %d\n", net1.GetRPCount())
+
 	return reply
 }
 
@@ -67,10 +70,9 @@ func testCountNodesMultClient(clientCount int) []string {
 	}
 
 	wg.Wait()
+	fmt.Printf("Network n2 | RPC count: %d\n", net2.GetRPCount())
 	return replies
 }
-
-// TODO multiple clients fail, protect node's data
 
 func main() {
 	disableLogs()
@@ -78,16 +80,10 @@ func main() {
 	assert("Test CountNodes", testCountNodes(), strconv.Itoa(net.NumNodes))
 
 	// test2
-	clientCount := 10000
+	clientCount := 1000
 	expectedReplies := make([]string, clientCount)
 	for i := range expectedReplies {
 		expectedReplies[i] = strconv.Itoa(net.NumNodes)
 	}
-	res := testCountNodesMultClient(clientCount)
-	for i := range res {
-		if res[i] != strconv.Itoa(net.NumNodes) {
-			fmt.Print(res[i])
-		}
-	}
-	//assert("Test CountNodes on Multiple Client Calls", testCountNodesMultClient(clientCount), expectedReplies)
+	assert("Test CountNodes on Multiple Client Calls", testCountNodesMultClient(clientCount), expectedReplies)
 }

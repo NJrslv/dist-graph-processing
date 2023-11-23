@@ -2,10 +2,8 @@ package net
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
-	"strconv"
 )
 
 //
@@ -91,6 +89,7 @@ func (mi *MethodInvoker) getFuncByName(name string) anyFunc {
 //
 
 /*
+	Nodes are named as chars(Runes)
 	Graph format:
 	graph.txt:							For example Node1:
 		nodeName1						c <- a <-> b -> g
@@ -118,72 +117,42 @@ func InitGraphs(path string, nodes map[string]*Node) {
 
 	scanner := bufio.NewScanner(file)
 	nodeName := ""
-	g := make(Graph)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if len(line) == 1 {
-			// flush previous graph
-			if nodeName != "" {
-				nodes[nodeName].g = &g
-				g = make(Graph)
-				nodeName = ""
-			}
-			// node name
-			nodeName = string(line[0])
+		if isNodeName(line) {
+			nodeName = line
+			nodes[nodeName].g = make(Graph)
 		} else {
-			// Otherwise, it's an adjacency list
-			vs := make([]Vertex, len(line)-2)
-			var vertex Vertex
-			isFirstV := true
-			for i, c := range line {
-				if isFirstV && c != ':' {
-					vertex = Vertex(c)
-					isFirstV = false
-				} else if i >= 2 && c != ':' {
-					vs[i-2] = Vertex(c)
-				}
-			}
-			g[vertex] = vs
+			v, vs := parseLine(line)
+			nodes[nodeName].g[v] = vs
+		}
+
+	}
+}
+
+// parseLine parses line with format: vertex1:vertex2vertex3...
+// vertex#i is a rune(char)
+func parseLine(line string) (Vertex, []Vertex) {
+	var v Vertex
+	vs := make([]Vertex, len(line)-2)
+	for i, c := range line {
+		// line[1] is ':'
+		if i == 0 {
+			v = Vertex(c)
+		} else if i >= 2 {
+			vs[i-2] = Vertex(c)
 		}
 	}
-	// the last one
-	if nodeName == "" {
-		log.Fatalf("%s is empty", GraphPath)
-	} else {
-		nodes[nodeName].g = &g
-	}
+	return v, vs
 }
 
-func CreateTestGraphs(path string) {
-	file, err := os.Create(path)
-	if err != nil {
-		log.Fatal("error creating graph file")
-		return
+func isNodeName(line string) bool {
+	for _, c := range line {
+		if c == ':' {
+			return false
+		}
 	}
-	defer file.Close()
-
-	writer := bufio.NewWriter(file)
-	defer writer.Flush()
-
-	for i := 0; i < NumNodes; i++ {
-		fmt.Fprintf(writer, strconv.Itoa(i)+"\n")
-		graph := Graph{'a': {'a'}}
-		writeGraphToFile(writer, graph)
-	}
-}
-
-func writeGraphToFile(writer *bufio.Writer, graph Graph) {
-	for vertex, neighbors := range graph {
-		fmt.Fprint(writer, string(vertex)+":"+verticesToString(neighbors)+"\n")
-	}
-}
-
-func verticesToString(vertices []Vertex) string {
-	result := ""
-	for _, v := range vertices {
-		result += string(v)
-	}
-	return result
+	return true
 }
 
 //

@@ -22,7 +22,7 @@ func CountConnectedComponentsMap(node *Node, _ interface{}) interface{} {
 	visited := make(map[Vertex]bool)
 	count := 0
 
-	for vertex := range *graph {
+	for vertex := range graph {
 		if !visited[vertex] {
 			dfs(graph, vertex, visited)
 			count++
@@ -32,10 +32,10 @@ func CountConnectedComponentsMap(node *Node, _ interface{}) interface{} {
 	return strconv.Itoa(count)
 }
 
-func dfs(graph *Graph, vertex Vertex, visited map[Vertex]bool) {
+func dfs(graph Graph, vertex Vertex, visited map[Vertex]bool) {
 	visited[vertex] = true
 
-	for _, neighbor := range (*graph)[vertex] {
+	for _, neighbor := range (graph)[vertex] {
 		if !visited[neighbor] {
 			dfs(graph, neighbor, visited)
 		}

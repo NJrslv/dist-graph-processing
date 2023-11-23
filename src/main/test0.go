@@ -2,36 +2,11 @@ package main
 
 import (
 	"distgraphia/src/net"
-	"fmt"
-	"io"
-	"log"
-	"reflect"
+	"distgraphia/src/test"
 	"strconv"
 	"sync"
+	"time"
 )
-
-const (
-	colorRed   = "\033[0;31m"
-	colorGreen = "\033[0;32m"
-	format     = "%s%s %s\n"
-)
-
-func assert(testName string, result, expected interface{}) {
-	var color, assert string
-	if reflect.DeepEqual(result, expected) {
-		color = colorGreen
-		assert = "success"
-	} else {
-		color = colorRed
-		assert = "fail"
-	}
-	fmt.Printf(format, color, testName, assert)
-}
-
-func disableLogs() {
-	log.SetFlags(0)
-	log.SetOutput(io.Discard)
-}
 
 func testCountNodes() string {
 	net1 := net.MakeNetwork("n1")
@@ -40,13 +15,14 @@ func testCountNodes() string {
 	cl1 := net.MakeClient("c1")
 	cl1.ConnectTo(net1)
 
+	start := time.Now()
 	reply := ""
 	cl1.Call("n1", "CountNodes", "", &reply)
-	// fmt.Printf("Network n1 | RPC count: %d\n", net1.GetRPCount())
+	test.Duration("Count Nodes", start)
 	return reply
 }
 
-func testCountNodesMultClient(clientCount int) []string {
+func testCountNodesMultiClient(clientCount int) []string {
 	net2 := net.MakeNetwork("n2")
 	defer net2.Cleanup()
 
@@ -54,6 +30,7 @@ func testCountNodesMultClient(clientCount int) []string {
 	replies := make([]string, clientCount)
 	var wg sync.WaitGroup
 
+	start := time.Now()
 	for i := range clients {
 		clients[i] = *net.MakeClient("cl" + strconv.Itoa(i))
 		clients[i].ConnectTo(net2)
@@ -68,12 +45,12 @@ func testCountNodesMultClient(clientCount int) []string {
 	}
 
 	wg.Wait()
-	// fmt.Printf("Network n2 | RPC count: %d\n", net2.GetRPCount())
+	defer test.Duration("Count Nodes Multi Client", start)
 	return replies
 }
 
-func testCountConnComponents() string {
-	net.CreateTestGraphs(net.GraphPath)
+func testCountConnComponents(path string) string {
+	test.CreateTestGraphs(path) // with 2 components in each node
 	net3 := net.MakeNetwork("n3")
 	defer net3.Cleanup()
 
@@ -82,15 +59,17 @@ func testCountConnComponents() string {
 	cl1 := net.MakeClient("cl1")
 	cl1.ConnectTo(net3)
 
+	start := time.Now()
 	reply := ""
 	cl1.Call("n3", "CountConnectedComponents", "", &reply)
+	test.Duration("Count Connected Components", start)
 	return reply
 }
 
 func main() {
-	disableLogs()
+	test.DisableLogs()
 	// test1
-	assert("Test Count Nodes", testCountNodes(), strconv.Itoa(net.NumNodes))
+	test.Assert("Test Count Nodes", testCountNodes(), strconv.Itoa(net.NumNodes))
 
 	// test2
 	clientCount := 1000
@@ -98,8 +77,11 @@ func main() {
 	for i := range expectedReplies {
 		expectedReplies[i] = strconv.Itoa(net.NumNodes)
 	}
-	assert("Test Count Nodes on Multiple Client Calls", testCountNodesMultClient(clientCount), expectedReplies)
+	multiCount := testCountNodesMultiClient(clientCount)
+	test.Assert("Test Count Nodes on Multiple Client Calls", multiCount, expectedReplies)
 
 	// test3
-	assert("Test Count Connected Components", testCountConnComponents(), strconv.Itoa(10))
+	dist := testCountConnComponents(net.GraphPath)
+	seq := test.CountComponentsSequentially(net.GraphPath)
+	test.Assert("Test Count Components", dist, seq)
 }

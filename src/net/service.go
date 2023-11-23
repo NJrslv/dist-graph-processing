@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 )
 
 //
@@ -16,14 +15,14 @@ import (
 // BroadCaster broadcasts the message across the network,
 // each node has its own BroadCaster service
 type BroadCaster struct {
-	Net      *Network // Network
-	NodeName string   // node that uses broadcaster
+	Net  *Network // Network
+	node *Node    // node that uses broadcaster
 }
 
-func MakeBroadCaster(n *Network) *BroadCaster {
+func MakeBroadCaster(n *Network, node *Node) *BroadCaster {
 	return &BroadCaster{
-		Net:      n,
-		NodeName: "",
+		Net:  n,
+		node: node,
 	}
 }
 
@@ -39,35 +38,35 @@ func (bc *BroadCaster) GatherQuorum() map[string]*Node {
 // --- Method Invoker Start ---
 //
 
-type anyFunc func(interface{}) interface{}
+type anyFunc func(*Node, interface{}) interface{}
 
 type MethodInvoker struct {
 	reflectionMap map[string]anyFunc // func name <-> func
-	NodeName      string
+	node          *Node
 }
 
-func MakeMethodInvoker(methods []string) *MethodInvoker {
+func MakeMethodInvoker(methods []string, node *Node) *MethodInvoker {
 	mi := &MethodInvoker{
 		reflectionMap: make(map[string]anyFunc),
-		NodeName:      "",
+		node:          node,
 	}
 	for _, methodName := range methods {
-		mi.reflectionMap[methodName+"Map"] = getFuncByName(methodName + "Map")
-		mi.reflectionMap[methodName+"Reduce"] = getFuncByName(methodName + "Reduce")
+		mi.reflectionMap[methodName+"Map"] = mi.getFuncByName(methodName + "Map")
+		mi.reflectionMap[methodName+"Reduce"] = mi.getFuncByName(methodName + "Reduce")
 	}
 	return mi
 }
 
 func (mi *MethodInvoker) InvokeMethod(methodName string, args interface{}) interface{} {
 	if method, ok := mi.reflectionMap[methodName]; ok {
-		a := method(args)
+		a := method(mi.node, args)
 		return a
 	}
 	log.Fatalf("Service.InvokeMethod(): Method '%s' not found", methodName)
 	return ""
 }
 
-func getFuncByName(name string) anyFunc {
+func (mi *MethodInvoker) getFuncByName(name string) anyFunc {
 	switch name {
 	case "CountNodesMap":
 		return CountNodesMap
@@ -122,11 +121,10 @@ func InitGraphs(path string, nodes map[string]*Node) {
 	g := make(Graph)
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		if len(line) == 1 {
 			// flush previous graph
 			if nodeName != "" {
-				nodes[nodeName].g = g
+				nodes[nodeName].g = &g
 				g = make(Graph)
 				nodeName = ""
 			}
@@ -141,7 +139,7 @@ func InitGraphs(path string, nodes map[string]*Node) {
 				if isFirstV && c != ':' {
 					vertex = Vertex(c)
 					isFirstV = false
-				} else if c != ':' {
+				} else if i >= 2 && c != ':' {
 					vs[i-2] = Vertex(c)
 				}
 			}
@@ -152,7 +150,7 @@ func InitGraphs(path string, nodes map[string]*Node) {
 	if nodeName == "" {
 		log.Fatalf("%s is empty", GraphPath)
 	} else {
-		nodes[nodeName].g = g
+		nodes[nodeName].g = &g
 	}
 }
 
@@ -167,7 +165,7 @@ func CreateTestGraphs(path string) {
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	for i := 1; i <= NumNodes; i++ {
+	for i := 0; i < NumNodes; i++ {
 		fmt.Fprintf(writer, strconv.Itoa(i)+"\n")
 		graph := Graph{'a': {'a'}}
 		writeGraphToFile(writer, graph)
@@ -176,17 +174,16 @@ func CreateTestGraphs(path string) {
 
 func writeGraphToFile(writer *bufio.Writer, graph Graph) {
 	for vertex, neighbors := range graph {
-		fmt.Fprintf(writer, "%d:%s\n", vertex, verticesToString(neighbors))
+		fmt.Fprint(writer, string(vertex)+":"+verticesToString(neighbors)+"\n")
 	}
-	fmt.Fprint(writer)
 }
 
 func verticesToString(vertices []Vertex) string {
-	var result strings.Builder
+	result := ""
 	for _, v := range vertices {
-		result.WriteString(strconv.Itoa(int(v)))
+		result += string(v)
 	}
-	return result.String()
+	return result
 }
 
 //

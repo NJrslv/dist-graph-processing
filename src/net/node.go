@@ -27,7 +27,7 @@ type Node struct {
 	methInv *MethodInvoker // see service.go/MethodInvoker
 	done    chan struct{}  // closed when Network is cleaned up
 	count   int32          // total RPC count, for statistics
-	g       Graph
+	g       *Graph
 }
 
 func MakeNode(name string, done chan struct{}) *Node {
@@ -131,7 +131,7 @@ func (n *Node) handleWorker(req reqMsg) <-chan ReplyMsg {
 	reply := make(chan ReplyMsg)
 	go func() {
 		methodName := req.meth
-		res := n.methInv.InvokeMethod(methodName+"Map", string(req.args))
+		res := n.methInv.InvokeMethod(methodName+"Map", req.args)
 
 		var repl ReplyMsg
 		if len(res.(string)) == 0 {

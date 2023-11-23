@@ -117,19 +117,13 @@ func (n *Network) Cleanup() {
 }
 
 func (n *Network) connectServices() {
-	methods := []string{"CountNodes"}
-	methInv := MakeMethodInvoker(methods)
-	bc := MakeBroadCaster(n)
+	methods := []string{"CountNodes", "CountConnectedComponents"}
 
-	for nodeName, node := range n.nodes {
-		bc.Net = n
-		bc.NodeName = nodeName
-		methInv.NodeName = nodeName
-
+	for _, node := range n.nodes {
+		methInv := MakeMethodInvoker(methods, node)
+		bc := MakeBroadCaster(n, node)
 		node.ConnServices(bc, methInv)
 	}
-
-	InitGraphs(GraphPath, n.nodes)
 }
 
 func (n *Network) GetNodes() map[string]*Node {

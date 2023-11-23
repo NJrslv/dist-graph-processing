@@ -42,9 +42,7 @@ func testCountNodes() string {
 
 	reply := ""
 	cl1.Call("n1", "CountNodes", "", &reply)
-
-	fmt.Printf("Network n1 | RPC count: %d\n", net1.GetRPCount())
-
+	// fmt.Printf("Network n1 | RPC count: %d\n", net1.GetRPCount())
 	return reply
 }
 
@@ -70,14 +68,16 @@ func testCountNodesMultClient(clientCount int) []string {
 	}
 
 	wg.Wait()
-	fmt.Printf("Network n2 | RPC count: %d\n", net2.GetRPCount())
+	// fmt.Printf("Network n2 | RPC count: %d\n", net2.GetRPCount())
 	return replies
 }
 
 func testCountConnComponents() string {
-	net.CreateTestGraphs("src/graph.txt")
+	net.CreateTestGraphs(net.GraphPath)
 	net3 := net.MakeNetwork("n3")
 	defer net3.Cleanup()
+
+	net.InitGraphs(net.GraphPath, net3.GetNodes())
 
 	cl1 := net.MakeClient("cl1")
 	cl1.ConnectTo(net3)
@@ -90,7 +90,7 @@ func testCountConnComponents() string {
 func main() {
 	disableLogs()
 	// test1
-	assert("Test CountNodes", testCountNodes(), strconv.Itoa(net.NumNodes))
+	assert("Test Count Nodes", testCountNodes(), strconv.Itoa(net.NumNodes))
 
 	// test2
 	clientCount := 1000
@@ -98,8 +98,8 @@ func main() {
 	for i := range expectedReplies {
 		expectedReplies[i] = strconv.Itoa(net.NumNodes)
 	}
-	assert("Test CountNodes on Multiple Client Calls", testCountNodesMultClient(clientCount), expectedReplies)
+	assert("Test Count Nodes on Multiple Client Calls", testCountNodesMultClient(clientCount), expectedReplies)
 
 	// test3
-	fmt.Print(testCountConnComponents())
+	assert("Test Count Connected Components", testCountConnComponents(), strconv.Itoa(10))
 }

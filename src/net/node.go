@@ -22,7 +22,6 @@ const (
 
 type Node struct {
 	name string
-	// reqCh   chan reqMsg    // requests to this node
 	bc      *BroadCaster   // see service.go/BroadCaster
 	methInv *MethodInvoker // see service.go/MethodInvoker
 	done    chan struct{}  // closed when Network is cleaned up
@@ -33,7 +32,6 @@ type Node struct {
 func MakeNode(name string, done chan struct{}) *Node {
 	return &Node{
 		name: name,
-		//reqCh: make(chan reqMsg, 1),
 		done:  done,
 		count: 0,
 	}
@@ -62,7 +60,7 @@ func (n *Node) Dispatch(req reqMsg) <-chan ReplyMsg {
 
 	reply := make(chan ReplyMsg)
 	go func() {
-		// send the reply to the node.requestChan
+		// send the request
 		repl := make(chan ReplyMsg)
 		go n.Run(req, repl)
 

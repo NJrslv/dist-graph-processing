@@ -1,1 +1,1 @@
-# Distributed Educational Graph Processing System
+# Distributed Educational Processing System

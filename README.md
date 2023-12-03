@@ -24,5 +24,7 @@ docker run distgraphia
 
 ### Communication
 - Clients communicate with the network via the channel `clientCh of requests`, and they receive responses from `request.replyCh`. Nodes communicate through internal channels, while the network selects a coordinator for the client.
-![image](https://github.com/NJrslv/distgraphia/assets/108277031/bae0be2d-73a8-4bf3-bbc6-d4d4cea2441f)
+![image](https://github.com/NJrslv/distgraphia/assets/108277031/2566403a-fc96-4a3c-b3bf-6a6e400fcfe3)
+
+
 

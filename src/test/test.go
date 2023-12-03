@@ -26,7 +26,7 @@ func Duration(function string, start time.Time) {
 	fmt.Printf(DurationFormat, function, elapsed.Microseconds())
 }
 
-func Assert(testName string, result, expected interface{}) {
+func AssertEq(testName string, result, expected interface{}) {
 	var color, assert string
 	if reflect.DeepEqual(result, expected) {
 		color = ColorGreen
@@ -43,29 +43,6 @@ func DisableLogs() {
 	log.SetOutput(io.Discard)
 }
 
-func CountComponentsSequentially(path string) string {
-	// fictive chan, in order to create a node we need a chan
-	done := make(chan struct{})
-	nodesByName := make(map[string]*net.Node) // node name <-> *node
-	nodes := make([]*net.Node, net.NumNodes)
-	for i := range nodes {
-		nodes[i] = net.MakeNode(strconv.Itoa(i), done)
-		nodesByName[strconv.Itoa(i)] = nodes[i]
-	}
-	net.InitGraphs(path, nodesByName)
-
-	count := 0
-	for _, node := range nodesByName {
-		// This function takes (*Node, request.arguments)
-		// For this case we can assume arguments are ""
-		// because we do not need them
-		components, _ := strconv.Atoi(net.CountConnectedComponentsMap(node, "").(string))
-		count += components
-	}
-
-	return strconv.Itoa(count)
-}
-
 func CreateTestGraphs(path string) {
 	file, err := os.Create(path)
 	if err != nil {
@@ -77,11 +54,22 @@ func CreateTestGraphs(path string) {
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
+	graph := makeGraph()
 	for i := 0; i < net.NumNodes; i++ {
 		fmt.Fprintf(writer, strconv.Itoa(i)+"\n")
-		graph := net.Graph{'a': {'b'}, 'c': {'d'}}
 		writeGraphToFile(writer, graph)
 	}
+}
+
+func makeGraph() net.Graph {
+	g := net.Graph{}
+	for r := 'a'; r <= 's'; r++ {
+		g[net.Vertex(r)] = make([]net.Vertex, int('s')-int('a')+1)
+		for rr := 'a'; rr <= 's'; rr++ {
+			g[net.Vertex(r)][int(rr)-int('a')] = net.Vertex(rr)
+		}
+	}
+	return g
 }
 
 func writeGraphToFile(writer *bufio.Writer, graph net.Graph) {

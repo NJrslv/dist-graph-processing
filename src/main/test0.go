@@ -3,6 +3,7 @@ package main
 import (
 	"distgraphia/src/net"
 	"distgraphia/src/test"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -50,7 +51,6 @@ func testCountNodesMultiClient(clientCount int) []string {
 }
 
 func testCountConnComponents(path string) string {
-	test.CreateTestGraphs(path) // with 2 components in each node
 	net3 := net.MakeNetwork("n3")
 	defer net3.Cleanup()
 
@@ -66,11 +66,38 @@ func testCountConnComponents(path string) string {
 	return reply
 }
 
+func testCountConnComponentsSequentially(path string) string {
+	// fictive chan, in order to create a node we need a chan
+	done := make(chan struct{})
+	nodesByName := make(map[string]*net.Node) // node name <-> *node
+	nodes := make([]*net.Node, net.NumNodes)
+	for i := range nodes {
+		nodes[i] = net.MakeNode(strconv.Itoa(i), done)
+		nodesByName[strconv.Itoa(i)] = nodes[i]
+	}
+	net.InitGraphs(path, nodesByName)
+
+	start := time.Now()
+	count := 0
+	for _, node := range nodesByName {
+		// This function takes (*Node, request.arguments)
+		// For this case we can assume arguments are ""
+		// because we do not need them
+		components, _ := strconv.Atoi(net.CountConnectedComponentsMap(node, "").(string))
+		count += components
+	}
+	test.Duration("Count Connected Components Sequentially", start)
+	return strconv.Itoa(count)
+}
+
 func main() {
 	test.DisableLogs()
-	// test1
-	test.Assert("Test Count Nodes", testCountNodes(), strconv.Itoa(net.NumNodes))
 
+	fmt.Printf(test.ColorRed+"Number of nodes in the system: %d\n", net.NumNodes)
+
+	fmt.Print(test.ColorBlue + "--- Basic Tests ---\n")
+	// test1
+	test.AssertEq("Test Count Nodes", testCountNodes(), strconv.Itoa(net.NumNodes))
 	// test2
 	clientCount := 1000
 	expectedReplies := make([]string, clientCount)
@@ -78,10 +105,11 @@ func main() {
 		expectedReplies[i] = strconv.Itoa(net.NumNodes)
 	}
 	multiCount := testCountNodesMultiClient(clientCount)
-	test.Assert("Test Count Nodes on Multiple Client Calls", multiCount, expectedReplies)
+	test.AssertEq("Test Count Nodes on Multiple Client Calls", multiCount, expectedReplies)
 
-	// test3
+	fmt.Print(test.ColorBlue + "--- Benchmark && Tests ---\n")
+	test.CreateTestGraphs(net.GraphPath)
 	dist := testCountConnComponents(net.GraphPath)
-	seq := test.CountComponentsSequentially(net.GraphPath)
-	test.Assert("Test Count Components", dist, seq)
+	seq := testCountConnComponentsSequentially(net.GraphPath)
+	test.AssertEq("Test Count Components", dist, seq)
 }

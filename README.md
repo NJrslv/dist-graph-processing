@@ -4,7 +4,7 @@
 - [Details](#details)
 
 ## Introduction
-`distgraphia` is a an educational distributed system that is `not` fault-tolerant, with the aim of implementing the fundamental structure of a distributed system.
+`distgraphia` is an educational distributed system that is `not` fault-tolerant, with the aim of implementing the fundamental structure of a distributed system.
 
 
 ## Build
@@ -24,4 +24,5 @@ docker run distgraphia
 
 ### Communication
 - Clients communicate with the network via the channel `clientCh of requests`, and they receive responses from `request.replyCh`. Nodes communicate through internal channels, while the network selects a coordinator for the client.
-![image](https://github.com/NJrslv/distgraphia/assets/108277031/990a0ecc-e971-4920-932f-71c44cc5e974)
+![image](https://github.com/NJrslv/distgraphia/assets/108277031/bae0be2d-73a8-4bf3-bbc6-d4d4cea2441f)
+
